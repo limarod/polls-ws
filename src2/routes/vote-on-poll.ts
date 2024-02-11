@@ -23,10 +23,11 @@ export async function voteOnPoll (app: FastifyInstance){
         const {pollsId} = voteOnPollParams.parse(request.params)
         const {pollOptionsId} = voteOnPollBody.parse(request.body)
 
-        console.log("pollOptionsId:", pollOptionsId);
-        console.log("pollsId:", pollsId);
-        
+      
+
         let sessionId = request.cookies.sessionId
+
+
 
         if (sessionId){
             const userPreviousVoteonPoll = await prisma.votes.findUnique({
@@ -44,7 +45,12 @@ export async function voteOnPoll (app: FastifyInstance){
                     }
                 })
 
-                await redis.zincrby(pollsId, -1, userPreviousVoteonPoll.pollOptionsId)
+                const votes = await redis.zincrby(pollsId, -1, userPreviousVoteonPoll.pollOptionsId)
+
+                voting.publish(pollsId, {
+                    pollOptionsId: userPreviousVoteonPoll.pollOptionsId,
+                    votes: Number(votes),
+                })
 
             }else if(userPreviousVoteonPoll){
                 
@@ -52,7 +58,6 @@ export async function voteOnPoll (app: FastifyInstance){
             }
     
         }
-
        
         if(!sessionId){
 
@@ -74,11 +79,19 @@ export async function voteOnPoll (app: FastifyInstance){
             }
         })
 
-        await redis.zincrby(pollsId, 1, pollOptionsId)
+        const pollOption = await prisma.pollOptions.findUnique({
+            where:{
+                id:pollOptionsId
+            }
+        })
+
+        const pollOptionTitle = pollOption?.title
+
+       const votes = await redis.zincrby(pollsId, 1, pollOptionsId)
 
       voting.publish(pollsId, {
         pollOptionsId,
-        votes: 1,
+        votes: Number(votes),
       })
     
         return reply.status(201).send()

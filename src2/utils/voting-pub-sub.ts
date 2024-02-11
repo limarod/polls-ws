@@ -1,7 +1,10 @@
 
 
 type Message = {pollOptionsId: string, votes: number}
-type Subscriber = {message: Message} => void
+// type Subscriber = {message: Message} => void
+type Subscriber = {
+    (message: Message): void;
+}
 
 
 class VottingPubSub{
